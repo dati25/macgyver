@@ -153,11 +153,56 @@ Supported for upload/export endpoints: `Authorization: Basic {base64(username:pa
 | GET | `/v1/queues/{id}/export` | Export annotations |
 | GET | `/v1/queues/{id}/counts` | Get counts |
 
-**Create/Update fields**: `name` (required), `workspace` (URL, required), `schema` (URL, required), `metadata` (optional)
+### Queue Fields
 
-**Export parameters**: `status` (filter), `format` (csv/xml/json/xlsx), `id` (specific annotation)
+**Core attributes**: `id`, `url`, `name` (string, required), `workspace` (URL, required), `schema` (URL, required)
 
-**Filtering**: `workspace` (integer)
+**Processing settings**:
+- `default_score_threshold` (float 0-1): AI confidence cutoff for automatic field validation; overridable per datapoint
+- `dedicated_engine` (string, optional): URL to dedicated ML engine
+- `generic_engine` (string, optional): URL to generic extraction engine
+- `locale` (string): Language/region code (e.g., `"en_US"`) affecting UI and extraction
+- `automation` (object): Auto-validation behavior settings
+- `accepted_mime_types` (array): File types permitted for upload
+- `rir_params` (object): Parameters for initializing field values
+- `metadata` (object, optional): Custom JSON (max 4 KB)
+
+**Workflow settings**:
+- `confirmation` (object): Criteria for requiring manual confirmation
+- `rejection` (object): Rejection workflow settings (enable/disable rejection status)
+
+**Filtering**: `workspace` (integer), `locale` (string)
+
+### Queue Examples
+
+```bash
+# List queues in a workspace
+curl -H 'Authorization: Bearer TOKEN' \
+  'https://<domain>.rossum.app/api/v1/queues?workspace=7540&locale=en_US&ordering=name'
+
+# Create queue
+curl -X POST -H 'Authorization: Bearer TOKEN' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Invoice Processing",
+    "workspace": "https://<domain>.rossum.app/api/v1/workspaces/123",
+    "schema": "https://<domain>.rossum.app/api/v1/schemas/456"
+  }' \
+  'https://<domain>.rossum.app/api/v1/queues'
+```
+
+### Export
+
+`GET /v1/queues/{id}/export`
+
+**Parameters**: `status` (filter by annotation status), `format` (`csv`/`xml`/`json`/`xlsx`), `id` (specific annotation IDs, comma-separated), `page_size` (up to 1000 for CSV)
+
+Only fields with `can_export: true` are included.
+
+```bash
+curl -H 'Authorization: Bearer TOKEN' \
+  'https://<domain>.rossum.app/api/v1/queues/8199/export?status=exported&format=csv&id=319668'
+```
 
 ---
 
@@ -186,24 +231,78 @@ Schemas consist of **sections** containing **datapoints** (header fields) and **
 - `hidden`: Hide from UI (default: false)
 - `disable_prediction`: Disable AI extraction (default: false)
 
-### Datapoint (Field) Types
+### Datapoint (Field) Types with Examples
 
-| Type | Description |
-|------|-------------|
-| `string` | Text. Supports length constraints and regex patterns |
-| `number` | Numeric. `format` for display (e.g., `#,##0.#`), `aggregations` for column sums |
-| `date` | Date. `format` for layout (e.g., `MM/DD/YYYY`) |
-| `enum` | Dropdown. `options` array of `{value, label}`, `enum_value_type` |
-| `button` | Interactive UI element. `popup_url`, `can_obtain_token` |
-| `formula` | Calculated from other fields |
-| `reasoning` | AI-generated from prompt and context |
+**String field**:
+```json
+{
+  "category": "datapoint",
+  "id": "document_id",
+  "label": "Invoice ID",
+  "type": "string",
+  "rir_field_names": ["document_id"],
+  "constraints": {
+    "length": {"max": 16, "min": null},
+    "regexp": {"pattern": "^INV[0-9]+$"},
+    "required": false
+  },
+  "default_value": null
+}
+```
+
+**Number field**:
+```json
+{
+  "category": "datapoint",
+  "id": "item_quantity",
+  "type": "number",
+  "label": "Quantity",
+  "format": "#,##0.#"
+}
+```
+
+**Date field**:
+```json
+{
+  "category": "datapoint",
+  "id": "item_delivered",
+  "type": "date",
+  "label": "Delivered",
+  "format": "MM/DD/YYYY"
+}
+```
+
+**Enum field**:
+```json
+{
+  "category": "datapoint",
+  "id": "document_type",
+  "type": "enum",
+  "label": "Document Type",
+  "options": [
+    {"label": "Invoice Received", "value": "21"},
+    {"label": "Receipt", "value": "23"}
+  ],
+  "enum_value_type": "number",
+  "default_value": "21"
+}
+```
+
+**Button** (`popup_url`, `can_obtain_token`), **Formula** (calculated from other fields), **Reasoning** (AI-generated from prompt and context) are also supported.
 
 ### Datapoint Configuration
 
-- `rir_field_names`: Sources for AI extraction (e.g., `document_id`, `date_issue`, `amount_total`)
+- `rir_field_names` (array): Sources for field values (AI extraction, upload, email). Supports prefixes:
+  - `"document_id"` — AI-extracted field
+  - `"upload:my_field_id"` — User-provided value during upload
+  - `"edit:my_field_id"` — User-provided value via edit endpoint
+  - `"email_header:subject"` — Email header (from, to, reply-to, subject, message-id, date)
+  - `"email_body:text_html"` — HTML email body
 - `default_value`: Fallback if extraction unavailable
-- `constraints`: `length` (min/max), `regexp`, `required`
-- `score_threshold`: AI confidence threshold for auto-validation
+- `constraints`: `length` (min/max), `regexp` (pattern), `required`
+- `score_threshold` (float 0-1): AI confidence threshold for auto-validation
+- `can_export` (boolean): Whether included in export
+- `can_collapse` (boolean): For tabular fields in UI
 - `ui_configuration.type`: `captured`, `data`, `manual`, `formula`, `reasoning`
 - `ui_configuration.edit`: `enabled`, `enabled_without_warning`, `disabled`
 
@@ -236,9 +335,110 @@ Schemas consist of **sections** containing **datapoints** (header fields) and **
 - `children`: Array of datapoints in the row
 - `rir_field_names`: AI field sources for the row
 
+### Complete Schema Example
+
+```json
+[
+  {
+    "category": "section",
+    "id": "invoice_info_section",
+    "label": "Basic Information",
+    "children": [
+      {
+        "category": "datapoint",
+        "id": "document_id",
+        "label": "Invoice Number",
+        "type": "string",
+        "rir_field_names": ["document_id"]
+      },
+      {
+        "category": "datapoint",
+        "id": "date_issue",
+        "label": "Issue Date",
+        "type": "date",
+        "format": "YYYY-MM-DD",
+        "rir_field_names": ["date_issue"]
+      }
+    ]
+  },
+  {
+    "category": "section",
+    "id": "amounts_section",
+    "label": "Amounts",
+    "children": [
+      {
+        "category": "datapoint",
+        "id": "amount_total",
+        "label": "Total Amount",
+        "type": "number",
+        "format": "#,##0.00",
+        "rir_field_names": ["amount_total"]
+      },
+      {
+        "category": "multivalue",
+        "id": "line_items",
+        "label": "Line Items",
+        "rir_field_names": ["line_items"],
+        "min_occurrences": 0,
+        "max_occurrences": 1000,
+        "children": {
+          "category": "tuple",
+          "id": "line_item",
+          "rir_field_names": ["line_items"],
+          "children": [
+            {
+              "category": "datapoint",
+              "id": "item_description",
+              "label": "Description",
+              "type": "string",
+              "rir_field_names": ["item_description"]
+            },
+            {
+              "category": "datapoint",
+              "id": "item_quantity",
+              "label": "Quantity",
+              "type": "number",
+              "rir_field_names": ["item_quantity"]
+            },
+            {
+              "category": "datapoint",
+              "id": "item_amount_total",
+              "label": "Amount",
+              "type": "number",
+              "format": "#,##0.00",
+              "rir_field_names": ["item_amount_total"]
+            }
+          ]
+        }
+      },
+      {
+        "category": "multivalue",
+        "id": "vat_details",
+        "label": "VAT Details",
+        "rir_field_names": ["tax_details"],
+        "children": {
+          "category": "tuple",
+          "id": "vat_detail",
+          "children": [
+            {
+              "category": "datapoint",
+              "id": "vat_detail_rate",
+              "label": "VAT Rate",
+              "type": "number",
+              "rir_field_names": ["tax_detail_rate"],
+              "format": "# ##0.#"
+            }
+          ]
+        }
+      }
+    ]
+  }
+]
+```
+
 ### Schema Update Behavior
 
-Data values are preserved when: adding/removing fields, reordering fields, moving fields between sections, converting single fields to multivalues, changing tuple membership, updating labels/formats/constraints/enum options.
+Data values are preserved when: adding/removing fields, reordering fields, moving fields between sections, converting single fields to multivalues, changing tuple membership, updating labels/formats/constraints/enum options. The `category` and `schema_id` must remain unchanged for data preservation.
 
 ---
 
@@ -354,7 +554,49 @@ Annotations represent extracted data from documents and track the full processin
 | POST | `/v1/annotations/{id}/content/replace_by_ocr` | Re-OCR |
 | POST | `/v1/annotations/{id}/content/validate` | Validate against schema |
 
-**Filtering annotations**: `status`, `queue`, `workspace`, date ranges
+### Annotation Object Fields
+
+- `id` (integer): Unique identifier
+- `url` (string): API endpoint URL
+- `status` (string): Current lifecycle state
+- `document` (string): Associated document URL
+- `queue` (string): Parent queue URL
+- `schema` (string): Extraction schema URL
+- `modifier` (string): User URL who last modified
+- `created_at`, `updated_at`, `confirmed_at`, `started_at` (string): ISO 8601 timestamps
+- `content` (object): Extracted data structure
+- `messages` (array): Validation messages and errors
+- `metadata` (object): Custom JSON (up to 4 KB)
+
+### Annotation Response Example
+
+```json
+{
+  "id": 319668,
+  "url": "https://<domain>.rossum.app/api/v1/annotations/319668",
+  "queue": "https://<domain>.rossum.app/api/v1/queues/8199",
+  "document": "https://<domain>.rossum.app/api/v1/documents/319768",
+  "status": "to_review",
+  "created_at": "2019-02-11T19:22:33.993427Z",
+  "updated_at": "2019-02-11T19:25:15.123456Z",
+  "modifier": "https://<domain>.rossum.app/api/v1/users/42",
+  "metadata": {"batch_id": "12345"}
+}
+```
+
+### Filtering & Sideloading
+
+**Query parameters**: `status`, `queue` (integer), `workspace` (integer), `modifier` (integer), `created_at`, `updated_at` (ISO 8601 date ranges), `ordering`
+
+**Sideloading**: `sideload=content` (include extracted data), `sideload=document` (include document metadata). When `sideload=content` is not used, search max page size is 500.
+
+### Annotation Operations Detail
+
+**Copy**: `POST /v1/annotations/{id}/copy` — Body: `{"target_queue": "URL", "target_status": "to_review"}`
+
+**Search**: `POST /v1/annotations/search` — Max page size 500 (1000 for CSV export)
+
+**Validate**: `POST /v1/annotations/{id}/content/validate` — Returns validation messages, constraint violations, table aggregations, and AI confidence scores
 
 ---
 
@@ -378,9 +620,22 @@ Annotations represent extracted data from documents and track the full processin
 
 **Upload states**: `created` → `processing` → `succeeded` / `failed`
 
-**Parameters**: `queue` (required), `content` (multipart file, required)
+**Format**: `multipart/form-data`
+
+**Parameters**: `queue` (required, as URL parameter), `content` (file, required), `metadata` (optional JSON, max 4 KB)
+
+**Pre-filling fields on import**: Use `rir_field_names: ["upload:my_id"]` in the schema, then pass values during upload.
 
 **Recommended**: A4 format, minimum 150 DPI for scans/photos
+
+```bash
+# Upload a document
+curl -H 'Authorization: Bearer TOKEN' \
+  -F content=@document.pdf \
+  'https://<domain>.rossum.app/api/v1/uploads?queue=8199'
+```
+
+Response returns a task URL for monitoring processing status.
 
 ---
 
@@ -400,21 +655,100 @@ Hooks extend Rossum with custom logic. Three types: **webhooks**, **serverless f
 | POST | `/v1/hooks/{id}/manual_trigger` | Manual trigger |
 | GET | `/v1/hooks/{id}/logs` | List call logs |
 
+### Hook Object Fields
+
+- `id` (integer): Unique identifier
+- `url` (string): API endpoint
+- `type` (string): `"webhook"`, `"function"`, or connector type
+- `name` (string): Display name
+- `events` (array): Trigger event types
+- `config` (object): Extension-specific configuration
+- `queues` (array): Queue URLs this hook applies to
+- `active` (boolean): Enable/disable
+- `sideload` (array): Additional data to include in payloads
+- `token_owner` (string): User identity for API access
+- `run_after` (array): Hook URLs that must run before this one
+- `metadata` (object): Custom JSON (up to 4 KB)
+- `settings` (object): Behavior settings (retry, timeout, queue filters)
+- `secrets` (object): Sensitive credential storage
+
 ### Webhook Extension
 
 Webhooks send HTTP POST payloads to a configured URL when events occur.
 
-**Payload validation**: HMAC-SHA256 signature in request headers.
+**Payload validation**: HMAC-SHA256 signature via `X-Rossum-Signature` header. Verify by computing `HMAC-SHA256(secret_key, request_body)` and comparing.
+
+**Payload includes a temporary API token** for making callbacks to the Rossum API.
+
+```bash
+# Create a webhook
+curl -X POST -H 'Authorization: Bearer TOKEN' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "type": "webhook",
+    "events": ["annotation.confirmed"],
+    "config": {
+      "url": "https://example.com/webhook",
+      "timeout_s": 30
+    },
+    "active": true
+  }' \
+  'https://<domain>.rossum.app/api/v1/hooks'
+```
+
+**Example webhook payload**:
+```json
+{
+  "event": "annotation.confirmed",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "annotation": {
+    "id": 12345,
+    "url": "https://<domain>.rossum.app/api/v1/annotations/12345",
+    "content": {"fields": {}}
+  },
+  "token": "temporary_api_token_for_webhook"
+}
+```
 
 ### Serverless Function Extension
 
-Custom code executed in response to events without maintaining infrastructure. Functions receive event payloads and can modify annotation data or trigger downstream processes.
+Custom code executed in response to events without maintaining infrastructure. Functions receive event payloads identical to webhooks and can modify annotation data.
+
+```bash
+# Create a serverless function
+curl -X POST -H 'Authorization: Bearer TOKEN' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "type": "function",
+    "events": ["annotation.to_review"],
+    "config": {
+      "runtime": "python3.9",
+      "code": "def handler(event, context): return {}"
+    },
+    "active": true
+  }' \
+  'https://<domain>.rossum.app/api/v1/hooks'
+```
 
 ### Connector Extension
 
 Connectors push validated data to external systems via two endpoints:
-- **Validate endpoint**: Called before export; can reject invalid data
-- **Save endpoint**: Called after validation; HTTP 200 marks annotation as exported
+- **Validate endpoint** (`POST /validate`): Called before export; can reject invalid data
+- **Save endpoint** (`POST /save`): Called after validation; HTTP 200 marks annotation as exported
+
+Both endpoints receive POST requests with JSON annotation data matching the queue schema. The validate endpoint returns status and optional error messages.
+
+### Hook Settings
+
+```json
+{
+  "settings": {
+    "retry": {"max_attempts": 3, "backoff_seconds": 60},
+    "timeout_seconds": 30,
+    "queue_filter": [8236, 8199]
+  }
+}
+```
 
 ### Webhook Events
 
@@ -423,10 +757,28 @@ Connectors push validated data to external systems via two endpoints:
 | `upload.created` | Document uploaded |
 | `annotation.started` | Annotation begins |
 | `annotation.confirmed` | User confirms data |
+| `annotation.in_workflow` | Workflow processing started |
 | `annotation.exported` | Export succeeds |
 | `annotation.rejected` | Annotation rejected |
 | `annotation.failed_export` | Export failed |
 | `email.received` | Email arrives at inbox |
+
+### Hook Operations Examples
+
+```bash
+# Test a hook
+curl -X POST -H 'Authorization: Bearer TOKEN' \
+  'https://<domain>.rossum.app/api/v1/hooks/123/test'
+
+# Manual trigger
+curl -X POST -H 'Authorization: Bearer TOKEN' \
+  -d '{"annotation_id": 12345}' \
+  'https://<domain>.rossum.app/api/v1/hooks/123/manual_trigger'
+
+# View hook logs
+curl -H 'Authorization: Bearer TOKEN' \
+  'https://<domain>.rossum.app/api/v1/hooks/123/logs?page_size=50'
+```
 
 ---
 
@@ -456,7 +808,31 @@ Email endpoints that auto-import documents into queues.
 | PATCH | `/v1/inboxes/{id}` | Partial update |
 | DELETE | `/v1/inboxes/{id}` | Delete inbox |
 
-**Email limits**: 50 MB (raw message). ZIP archives: 40 MB uncompressed, max 1000 files. Only root-level or first-level directory contents extracted.
+### Inbox Fields
+
+- `name` (string): Display name
+- `queue` (string): Associated queue URL
+- `email` (string): Inbox email address for receiving documents
+- `accepted_mime_types` (array): File format filters
+- `bounce_settings` (object): Email bounce handling configuration
+
+**Email field initialization**: Use `rir_field_names` with `"email_header:<id>"` (supported: from, to, reply-to, subject, message-id, date) to populate fields from email metadata.
+
+**Processing**: Incoming emails are scanned for PDF, images, and ZIP archives. Small images (≤100x100 pixels) are auto-ignored.
+
+**Email limits**: 50 MB (raw message with base64 encoding). ZIP archives: 40 MB uncompressed, max 1000 files. Only root-level or first-level directory contents extracted.
+
+```bash
+# Create inbox
+curl -X POST -H 'Authorization: Bearer TOKEN' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Invoice Inbox",
+    "queue": "https://<domain>.rossum.app/api/v1/queues/8199",
+    "accepted_mime_types": ["application/pdf", "image/*"]
+  }' \
+  'https://<domain>.rossum.app/api/v1/inboxes'
+```
 
 ---
 
@@ -501,7 +877,45 @@ Email endpoints that auto-import documents into queues.
 | DELETE | `/v1/users/{id}` | Delete user |
 | POST | `/v1/users/{id}/set_password` | Set password |
 
-Users can be auto-provisioned through SSO. Roles determine permissions (annotation review, approval, admin functions).
+### User Fields
+
+- `id` (integer): Unique identifier
+- `username` (string): Login email
+- `email` (string): User email address
+- `first_name`, `last_name` (string): Display name
+- `role` (string): User role assignment
+- `groups` (array): Group memberships (organization groups)
+- `is_active` (boolean): Account enabled/disabled
+- `metadata` (object): Custom JSON (max 4 KB)
+- `max_token_lifetime_s` (integer): Token expiration duration
+
+Users can be auto-provisioned through SSO with roles specified in the JWT `roles` array.
+
+### Memberships
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/v1/memberships` | List memberships |
+| POST | `/v1/memberships` | Create membership |
+| GET | `/v1/memberships/{id}` | Retrieve membership |
+| PUT | `/v1/memberships/{id}` | Update membership |
+| PATCH | `/v1/memberships/{id}` | Partial update |
+| DELETE | `/v1/memberships/{id}` | Delete membership |
+
+Memberships control user access to workspaces and organizations.
+
+```bash
+# Create user
+curl -X POST -H 'Authorization: Bearer TOKEN' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "username": "user@example.com",
+    "email": "user@example.com",
+    "first_name": "John",
+    "last_name": "Doe"
+  }' \
+  'https://<domain>.rossum.app/api/v1/users'
+```
 
 ---
 
