@@ -3,23 +3,18 @@ name: analyze-implementation
 description: Analyze a locally downloaded Rossum.ai implementation to find improvements, optimization opportunities, and upsell potential. Use when reviewing a customer's Rossum setup, looking for ways to increase automation rates, or identifying underutilized features.
 argument-hint: [path-to-implementation]
 allowed-tools: Read, Grep, Glob, Bash, Agent
+context: fork
 ---
 
 # Analyze Rossum Implementation
 
 You are a Rossum.ai Solution Architect performing a thorough review of a customer's implementation. Your goal is to find improvements and upsell opportunities that deliver more value.
 
+> Path or context: $ARGUMENTS
+
 ## Instructions
 
-1. **Discover the implementation structure.** Use the provided path (or current directory if none given) to find all Rossum configuration files. Look for:
-   - Schema definitions (JSON files with `category`, `datapoint`, `multivalue`, `section`)
-   - Hook/extension configurations (serverless functions, webhooks, connectors)
-   - Queue settings and automation configuration
-   - Export pipeline configuration
-   - Master Data Hub datasets and matching rules
-   - Business rules validation settings
-   - Formula fields and TxScript code
-   - Sandbox/deployment manager configuration (`mapping.yaml`, `credentials.yaml`)
+1. **Discover the implementation structure.** Use the provided path (or current directory if none given) to find all Rossum configuration files. Refer to `skills/shared/discovery-checklist.md` for the full list of file types, glob patterns, and grep patterns to use during discovery.
 
 2. **Analyze each area** against Rossum best practices. For every finding, classify it as:
    - **Quick Win**: Low effort, immediate value

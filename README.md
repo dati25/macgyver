@@ -60,6 +60,8 @@ rossum-claude-plugin/
     ├── rossum-reference/
     │   ├── SKILL.md
     │   └── reference.md
+    ├── shared/
+    │   └── discovery-checklist.md
     └── write-sow/
         └── SKILL.md
 ```

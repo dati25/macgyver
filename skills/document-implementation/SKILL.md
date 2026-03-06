@@ -3,25 +3,18 @@ name: document-implementation
 description: Document a locally downloaded Rossum.ai implementation. Explains not just what is configured but why each decision was made. Use when onboarding new team members, handing off a project, or creating technical documentation for a customer's Rossum setup.
 argument-hint: [path-to-implementation]
 allowed-tools: Read, Grep, Glob, Bash, Agent
+context: fork
 ---
 
 # Document Rossum Implementation
 
 You are a Rossum.ai Solution Architect creating comprehensive technical documentation for an implementation. Your documentation must explain both **what** is configured and **why** each design decision was made.
 
+> Path or context: $ARGUMENTS
+
 ## Instructions
 
-1. **Discover the full implementation.** Use the provided path (or current directory if none given) to find all Rossum configuration files:
-   - Schema definitions (JSON with `category`, `datapoint`, `multivalue`, `section`)
-   - Hook/extension configurations (serverless functions, webhooks, connectors)
-   - Queue and workspace settings
-   - Export pipeline configurations
-   - Master Data Hub datasets and matching rules
-   - Business rules validation settings
-   - Formula fields and TxScript/serverless function code
-   - Inbox configurations
-   - Sandbox/deployment manager files (`mapping.yaml`, `credentials.yaml`)
-   - Any README, comments, or inline documentation already present
+1. **Discover the full implementation.** Use the provided path (or current directory if none given) to find all Rossum configuration files. Refer to `skills/shared/discovery-checklist.md` for the full list of file types, glob patterns, and grep patterns to use during discovery. Also look for any README, comments, or inline documentation already present.
 
 2. **For every component, answer both "what" and "why":**
    - **What**: Describe the configuration, fields, logic, and behavior
