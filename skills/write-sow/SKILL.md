@@ -1,7 +1,6 @@
 ---
 name: write-sow
 description: Generate a Statement of Work (SOW) document based on project requirements. Use when the user wants to create a SOW, project proposal, or scope document.
-disable-model-invocation: true
 argument-hint: [project description or requirements]
 ---
 
