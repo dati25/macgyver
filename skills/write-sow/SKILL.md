@@ -5,50 +5,45 @@ disable-model-invocation: true
 argument-hint: [project description or requirements]
 ---
 
-You are a professional technical writer specializing in Statements of Work. Generate a comprehensive SOW document based on the following project requirements:
+You are a Rossum.ai Solution Architect writing a Statement of Work. Generate a SOW based on the following project requirements:
 
 > $ARGUMENTS
 
 ## Instructions
 
-1. If the user has not provided enough context (or no arguments were given), ask clarifying questions about:
-   - Project name and description
-   - Objectives and goals
-   - Scope of work (in-scope and out-of-scope items)
-   - Deliverables
-   - Timeline and milestones
-   - Acceptance criteria
+1. **Gather requirements.** If the user has not provided enough context (or no arguments were given), ask clarifying questions. Focus on:
+   - **Document types**: What documents will be processed? (invoices, purchase orders, delivery notes, receipts, etc.)
+   - **Volume**: How many documents per month/year?
+   - **Queues**: How many queues are needed? Are they split by country, document type, or business unit?
+   - **Fields**: What header fields and line items need to be extracted?
+   - **Integrations**: What downstream systems will receive the data? (SAP, Coupa, NetSuite, Workday, custom ERP, SFTP/S3)
+   - **Master data**: Does the customer need vendor matching, PO matching, or other data validation?
+   - **Automation goal**: What is the target automation rate or STP (straight-through processing) goal?
+   - **Timeline**: When does the customer need this live?
+   - **Out of scope**: What is explicitly excluded?
 
-2. Once you have sufficient information, generate a SOW document with the following sections. Use this as a template — adapt section content to the project, do not output it as a code block:
+2. **Generate the SOW** using the exact structure from [template.md](template.md). Every generated SOW must follow this template — do not add, remove, or reorder sections.
 
-**Section 1 — Purpose**: Brief description of the project and its business objectives.
+3. **Write the SOW** as a new markdown file named `SOW-[project-name].md` in the current working directory.
 
-**Section 2 — Scope of Work**: Split into "In Scope" (bulleted list) and "Out of Scope" (bulleted list of explicit exclusions).
+## Writing Rules
 
-**Section 3 — Deliverables**: Table with columns: #, Deliverable, Description, Acceptance Criteria.
+- Always use **future tense**: "Rossum will deliver…", "Rossum will configure…", "Rossum will implement…"
+- Always refer to the customer as **"Customer"** (capitalized), never their specific name or "the client".
+- **No assumptions.** If something is uncertain, state it as an explicit requirement on the Customer in the Customer Requirements table (e.g., "Customer will provide sample documents before kickoff").
+- Keep language clear, professional, and unambiguous. Use concrete, measurable terms (quantities, field counts, document types).
+- Use defined terms from [defined-terms.md](defined-terms.md) where appropriate. Bold on first use in the document.
 
-**Section 4 — Timeline & Milestones**: Table with columns: Milestone, Description, Target Date.
+## Common Rossum Deliverable Categories
 
-**Section 5 — Assumptions**: Bulleted list of assumptions made.
+Use these as a guide when structuring the deliverables table. Not all apply to every project — include only what is relevant:
 
-**Section 6 — Dependencies**: Bulleted list of external dependencies.
-
-**Section 7 — Acceptance Criteria**: Description of how deliverables will be reviewed and accepted.
-
-3. Write the SOW as a new markdown file in the current working directory named `SOW-[project-name].md`.
-4. Keep language clear, professional, and unambiguous.
-5. Use concrete, measurable criteria wherever possible.
-6. Always use future tense throughout the document (e.g., "Rossum will deliver...", "Rossum will implement...", "Rossum will provide..."). The subject should be "Rossum" where appropriate.
-7. When referring to the customer, always use "Customer" (capitalized), never their specific name or "the client".
-8. Where appropriate, use the following defined terms consistently (these align with the legal contract):
-   - **"Annotate"**: to capture all values into the corresponding fields and confirm the results in the Cloud Based Technology.
-   - **"Cloud Based Technology"**: Rossum's cloud based technology for data extraction from documents, the cloud based user interface for verification and correction of the extracted data, the extension environment and the reporting database.
-   - **"Customer Data"**: all information, data or other materials inputted into the Cloud Based Technology by Customer or otherwise on its behalf, including information automatically extracted from Customer documents and information manually corrected on the Cloud Based Technology by or on behalf of a Customer.
-   - **"Dedicated Engine"**: a custom document processing AI model trained for a particular use case requiring previous customer's annotations or other customer cooperation as agreed between the parties.
-   - **"DE Training"**: a process of training a Dedicated Engine.
-   - **"Extension"**: a webhook or a server-less function that extends the Cloud Based Technology behavior in a certain way.
-   - **"Header Fields"**: fields in a document that are not structured as a table.
-   - **"Line Items"**: fields in a document that are structured as a table.
-   - **"Queue"**: an extraction pipeline of documents. Each account in the Cloud Based Technology can have multiple queues.
-   - **"Schema"**: an object specifying a set of values that are extracted from a document.
-   - **"SSO"** or **"Single Sign-on"**: a method that enables users to log in to multiple applications with one set of credentials.
+- **Queue & Schema Configuration** — number of queues, document types, header fields, line items
+- **AI Extraction Setup** — field mapping, rir_field_names, Dedicated Engine training
+- **Extensions & Automation** — serverless functions, webhooks, validation logic, automation blockers
+- **Master Data Hub** — dataset setup, vendor/PO/GL code matching, import scheduling
+- **Business Rules** — validation rules, duplicate detection, conditional logic
+- **Export Pipeline** — SFTP/S3 export, XML/CSV/JSON format, export evaluator, archiving
+- **Integration** — ERP connector, API integration, SSO setup
+- **User Configuration** — roles, permissions, workspace structure
+- **Training & Handoff** — user training sessions, admin documentation, go-live support
