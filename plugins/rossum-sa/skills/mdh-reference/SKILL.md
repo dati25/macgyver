@@ -1,6 +1,6 @@
 ---
 name: mdh-reference
-description: Master Data Hub (MDH) API reference and matching query design guide. Covers dataset CRUD, fuzzy search, hook configuration model (MatchConfig, mapping, result actions, query cascades), query design rules, score normalization, and real-world matching examples. Use when building or debugging MDH matching configurations, designing query cascades, or working with the MDH API.
+description: Rossum Master Data Hub (MDH) API reference and matching query design guide. Covers dataset CRUD, fuzzy search, hook configuration model (MatchConfig, mapping, result actions, query cascades), query design rules, score normalization, and real-world matching examples. Use when building or debugging MDH matching configurations, designing query cascades, or working with the MDH API.
 user-invocable: false
 ---
 

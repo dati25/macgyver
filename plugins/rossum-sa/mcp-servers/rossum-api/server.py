@@ -17,6 +17,8 @@ except ImportError:
 _cached_base_url = None
 _cached_token = None
 _token_validated = False
+_client_capabilities = {}
+_server_request_counter = 0
 
 
 # --- MCP protocol ---
@@ -55,6 +57,37 @@ def tool_result(request_id, text, is_error=False):
     if is_error:
         result["isError"] = True
     respond(request_id, result)
+
+
+def _next_server_id():
+    global _server_request_counter
+    _server_request_counter += 1
+    return f"s-{_server_request_counter}"
+
+
+def _elicit(message, schema):
+    """Request user input via MCP elicitation. Returns content dict or None."""
+    if "elicitation" not in _client_capabilities:
+        return None
+    req_id = _next_server_id()
+    write_message({
+        "jsonrpc": "2.0",
+        "id": req_id,
+        "method": "elicitation/create",
+        "params": {
+            "message": message,
+            "requestedSchema": schema,
+        },
+    })
+    while True:
+        resp = read_message()
+        if resp is None:
+            return None
+        if resp.get("id") == req_id:
+            result = resp.get("result", {})
+            if result.get("action") == "accept":
+                return result.get("content", {})
+            return None
 
 
 # --- URL validation ---
@@ -126,8 +159,7 @@ def _ensure_connection(request_id):
 
     tool_result(
         request_id,
-        "Not connected to Rossum. Call rossum_set_token(token='...', baseUrl='...') "
-        "to establish a connection. Ask the user for the token and base URL if unknown.",
+        "Not connected to Rossum. Call rossum_set_token to establish a connection.",
         is_error=True,
     )
     return (None, None)
@@ -167,7 +199,7 @@ def _http_request(request_id, url, *, method="GET", body=None, parse_json=True):
             tool_result(
                 request_id,
                 f"Authentication failed (HTTP 401). Token may be expired. "
-                f"Ask the user for a new token, then call rossum_set_token.\n{error_body}",
+                f"Call rossum_set_token to re-authenticate.\n{error_body}",
                 is_error=True,
             )
             return None
@@ -366,20 +398,22 @@ _EMAIL_THREAD_FIELDS = (
 
 @_tool(
     "rossum_set_token",
-    "Set the Rossum API connection for this session. Provide a token and base URL.",
+    "Set the Rossum API connection for this session. "
+    "Prefer calling without arguments — the user will be prompted interactively "
+    "for credentials, keeping the token out of the conversation. "
+    "Only pass token/baseUrl as arguments if the user has already typed them in the chat.",
     {
         "type": "object",
-        "required": ["token", "baseUrl"],
         "properties": {
             "token": {
                 "type": "string",
-                "description": "Rossum API Bearer token.",
+                "description": "Rossum API Bearer token (omit to prompt interactively).",
             },
             "baseUrl": {
                 "type": "string",
                 "description": (
                     "Base URL of the Rossum environment "
-                    "(e.g. https://elis.rossum.ai, https://customer-dev.rossum.app)."
+                    "(e.g. https://elis.rossum.ai). Omit to prompt interactively."
                 ),
             },
         },
@@ -392,6 +426,37 @@ def handle_set_token(request_id, arguments):
 
     token = arguments.get("token", "")
     raw_url = arguments.get("baseUrl", "")
+
+    if not token or not raw_url:
+        content = _elicit(
+            "Enter your Rossum API credentials.",
+            {
+                "type": "object",
+                "properties": {
+                    "token": {
+                        "type": "string",
+                        "title": "API Token",
+                        "description": "Rossum API Bearer token",
+                    },
+                    "baseUrl": {
+                        "type": "string",
+                        "title": "Base URL",
+                        "description": "e.g. https://elis.rossum.ai",
+                        "default": "https://elis.rossum.ai",
+                    },
+                },
+                "required": ["token", "baseUrl"],
+            },
+        )
+        if content is None:
+            return tool_result(
+                request_id,
+                "Credential prompt was cancelled or not supported by this client. "
+                "Call rossum_set_token(token='...', baseUrl='...') with explicit arguments instead.",
+                is_error=True,
+            )
+        token = content.get("token", token)
+        raw_url = content.get("baseUrl", raw_url)
 
     if not token:
         return tool_result(request_id, "Missing 'token'.", is_error=True)
@@ -2027,10 +2092,12 @@ def main():
 
         try:
             if method == "initialize":
+                global _client_capabilities
+                _client_capabilities = message.get("params", {}).get("capabilities", {})
                 respond(request_id, {
                     "protocolVersion": "2024-11-05",
                     "capabilities": {"tools": {}},
-                    "serverInfo": {"name": "rossum-api", "version": "0.9.1"},
+                    "serverInfo": {"name": "rossum-api", "version": "0.10.0"},
                     "instructions": (
                         "SAFETY RULE — confirmation before writes: "
                         "Do NOT call any write, update, patch, create, or delete tool "

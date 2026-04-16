@@ -1,6 +1,6 @@
 ---
 name: refine-deployment
-description: Analyze and enhance prd2 deploy files by auto-filling missing target IDs, generating attribute overrides for naming conventions and environment-specific settings, and highlighting missing target objects.
+description: Refine Rossum prd2 deploy files by auto-filling missing target IDs, generating attribute overrides for naming conventions and environment-specific settings, and highlighting missing target objects. Use when preparing a deploy file for a Rossum environment migration.
 argument-hint: [deploy-file-path, path-to-implementation]
 allowed-tools: Read, Grep, Glob, Bash, Agent
 ---

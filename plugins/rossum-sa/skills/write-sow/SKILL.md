@@ -1,6 +1,6 @@
 ---
 name: write-sow
-description: Generate a Statement of Work (SOW) document based on project requirements. Use when the user wants to create a SOW, project proposal, or scope document. Triggers on requests like "write a SOW", "create a statement of work", "draft a proposal", "scope this project".
+description: Generate a Statement of Work (SOW) for a Rossum.ai implementation project. Use when the user wants to create a SOW, project proposal, or scope document for a Rossum engagement. Triggers on requests like "write a SOW", "create a statement of work", "draft a Rossum proposal", "scope this project".
 argument-hint: [project description or requirements]
 ---
 
