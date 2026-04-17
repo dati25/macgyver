@@ -64,6 +64,7 @@ When `rossum-sa` is enabled, Claude automatically gets domain knowledge for:
 - **Export Pipeline (Request Processor)** — multi-stage API integration engine, SFTP export, auth, response handling
 - **Coupa Integration Baseline (CIB)** — schema, MDH matching, export pipeline, business rules
 - **prd2 CLI** — deployment and management commands
+- **Structured Formats Import (SFI)** — XML/JSON import setup, XPath/JMESPath selectors, e-invoicing (ZUGFeRD, X-Rechnung)
 
 ## 💡 What can you do with this?
 
