@@ -520,8 +520,6 @@ for e in found_elements:
 
 Trigger: matches `<Invoice>` root element in XML.
 
-Reference deployment: EU2 org `e-invoicing-demo` [264813], queue `Reference E-invoice Demo` [1389195].
-
 ```json
 {
   "trigger_condition": {
