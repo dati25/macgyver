@@ -94,7 +94,13 @@ def _elicit(message, schema):
 
 
 def _validate_base_url(url):
-    """Validate and normalize a base URL. Returns origin or None."""
+    """Validate and normalize a base URL. Returns origin or None.
+
+    Normalizes common Rossum URL variants so callers don't need to know the
+    canonical hostname.  For example ``us.api.rossum.ai`` is rewritten to
+    ``us.app.rossum.ai`` because the ``*.api.*`` subdomain does not expose
+    the Data Storage service (``/svc/data-storage/...``).
+    """
     try:
         parsed = urlparse(url)
     except Exception:
@@ -103,7 +109,11 @@ def _validate_base_url(url):
         return None
     if not parsed.hostname:
         return None
-    origin = f"https://{parsed.hostname}"
+    hostname = parsed.hostname
+    # *.api.rossum.ai → *.app.rossum.ai (data-storage lives on *.app.*)
+    if hostname.endswith(".api.rossum.ai"):
+        hostname = hostname.replace(".api.rossum.ai", ".app.rossum.ai")
+    origin = f"https://{hostname}"
     if parsed.port and parsed.port != 443:
         origin += f":{parsed.port}"
     return origin
@@ -128,10 +138,9 @@ def _check_health(base_url):
 def _probe_token(base_url, token):
     """Validate a token with a lightweight API call. Returns (ok, error_detail)."""
     req = urllib.request.Request(
-        f"{base_url}/svc/data-storage/api/v1/collections/list",
-        data=json.dumps({"nameOnly": True}).encode("utf-8"),
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"},
-        method="POST",
+        f"{base_url}/api/v1/auth/user",
+        headers={"Authorization": f"Bearer {token}"},
+        method="GET",
     )
     try:
         with urllib.request.urlopen(req, timeout=10, context=_ssl_context) as resp:
