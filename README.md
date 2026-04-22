@@ -133,7 +133,8 @@ The MCP server starts automatically when `rossum-sa` is enabled. Write and destr
 | `rossum_search_annotations` | Search annotations across queues (filter by status, date range, workspace) |
 | `rossum_get_annotation` | Get annotation metadata, messages, and state |
 | `rossum_patch_annotation` | ✏️ Update annotation status or metadata (confirm, reject, export) |
-| `rossum_get_annotation_content` | Get extracted data from an annotation |
+| `rossum_get_annotation_content` | Get extracted data from an annotation (full tree, ~90KB) |
+| `rossum_get_annotation_fields` | Get specific datapoints by schema_id (small, ideal for MDH/aggregate query testing) |
 | `rossum_get_document` | Get document metadata (filename, MIME type) |
 | `rossum_get_inbox` | Get inbox details (email address, config) |
 | `rossum_list_connectors` | List export connectors (filter by queue) |

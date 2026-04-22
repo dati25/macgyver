@@ -117,6 +117,27 @@ If a hook uses something not covered above, the socket backstop will block it lo
 - `0` — hook ran and returned a value (printed as JSON).
 - `1` — import error, missing entry function, or hook raised an exception (traceback on stderr).
 
+## Testing MDH / MongoDB queries against live data
+
+When a hook calls into Master Data Hub (or queries a Data Storage collection), you often want to iterate on the aggregate pipeline against real field values before running the full hook. Quick loop:
+
+1. **Pull the specific field value(s) from a real annotation** using `rossum_get_annotation_fields(annotation_id, schema_ids=[...])`. This returns a small flat array (usually ~2-3 KB) — avoid `rossum_get_annotation_content` here, it returns the whole ~90 KB tree.
+2. **Plug the values into your pipeline** — swap the hook's dynamic inputs for the concrete values you just pulled.
+3. **Run the pipeline** via `data_storage_aggregate(collection, pipeline)` against the live collection. Iterate on the pipeline until the result matches expectations.
+4. **Paste the final pipeline back into the hook code** (or the MDH hook config's `MatchConfig.queries`), then use this skill's runner to exercise the hook end-to-end.
+
+Example values Claude can fetch to seed a query:
+
+```
+rossum_get_annotation_fields(annotation_id=28670565, schema_ids=["document_id", "date_issue"])
+→ [
+    {"schema_id": "document_id", "content": {"value": "143453775", ...}},
+    {"schema_id": "date_issue", "content": {"value": "3/1/2019", "normalized_value": "2019-03-01", ...}}
+  ]
+```
+
+Note `normalized_value` when present — MDH/aggregate queries usually match on the normalized form for dates and numbers, not the raw OCR string.
+
 ## Notes
 
 - The runner adds the hook module's directory to `sys.path` so sibling `.py` imports work.

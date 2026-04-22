@@ -1500,6 +1500,47 @@ def handle_get_annotation_content(request_id, arguments):
 
 
 @_tool(
+    "rossum_get_annotation_fields",
+    "Retrieves only specific datapoints from an annotation by schema_id (e.g. 'document_id', 'date_issue'). "
+    "Uses the list-annotations endpoint with sideload=content to return a flat array of matching datapoints "
+    "— far smaller than rossum_get_annotation_content, which returns the full content tree (~90KB). "
+    "Ideal for pulling individual field values to feed into MDH match queries or Data Storage aggregates.",
+    {
+        "type": "object",
+        "required": ["annotation_id", "schema_ids"],
+        "properties": {
+            "annotation_id": {
+                "type": "integer",
+                "description": "The annotation ID.",
+            },
+            "schema_ids": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "List of schema_ids to return (e.g. ['document_id', 'date_issue']). Comma-joined into the content.schema_id filter.",
+            },
+        },
+        "additionalProperties": False,
+    },
+    annotations=_READ_ONLY,
+)
+def handle_get_annotation_fields(request_id, arguments):
+    base_url, _ = _ensure_connection(request_id)
+    if not base_url:
+        return
+    schema_ids_csv = ",".join(arguments["schema_ids"])
+    params = urlencode([
+        ("id", arguments["annotation_id"]),
+        ("sideload", "content"),
+        ("content.schema_id", schema_ids_csv),
+    ])
+    url = f"{base_url}/api/v1/annotations?{params}"
+    result = _http_request(request_id, url, method="GET")
+    if result is None:
+        return
+    tool_result(request_id, json.dumps(result.get("content", []), indent=2))
+
+
+@_tool(
     "rossum_list_queues",
     "Lists all queues in the Rossum organization. Queues are the core processing unit — "
     "each represents a document intake pipeline with its own schema and hooks.",
@@ -2303,7 +2344,7 @@ def main():
                 respond(request_id, {
                     "protocolVersion": "2024-11-05",
                     "capabilities": {"tools": {}},
-                    "serverInfo": {"name": "rossum-api", "version": "0.13.0"},
+                    "serverInfo": {"name": "rossum-api", "version": "0.14.0"},
                     "instructions": (
                         "SAFETY RULE — confirmation before writes: "
                         "Do NOT call any write, update, patch, create, or delete tool "
