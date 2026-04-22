@@ -11,8 +11,8 @@ Turn Claude into a Rossum implementation partner — audit hooks, analyze schema
 You need [Claude Code CLI](https://code.claude.com/) and a Rossum API token.
 
 ```bash
-/plugin marketplace add dati25/claude-marketplace
-/plugin install rossum-sa@dati25-claude-marketplace
+/plugin marketplace add dati25/macgyver
+/plugin install rossum-sa@dati25-macgyver
 ```
 
 Then connect and go:
