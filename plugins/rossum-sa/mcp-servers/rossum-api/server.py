@@ -4,6 +4,7 @@
 import json
 import ssl
 import sys
+import tempfile
 import urllib.error
 import urllib.request
 from urllib.parse import urlencode, urlparse
@@ -1601,7 +1602,9 @@ def handle_get_hook(request_id, arguments):
 @_tool(
     "rossum_generate_hook_payload",
     "Generates a sample hook payload for a specific event and action, as the hook would receive it at runtime. "
-    "Useful for testing or previewing hook inputs. Values in 'secrets' are redacted. "
+    "The full payload is written to a JSON file in /tmp and the tool returns only the file path plus a brief summary "
+    "(top-level keys and size). Read the file directly when you need to feed the payload into local hook code; "
+    "this keeps large payloads out of the conversation context. Values in 'secrets' are redacted. "
     "For 'annotation_status' and 'annotation_content' events, annotation_id, previous_status, and status are required. "
     "For 'email' events, email_id is required. For 'upload' events, upload_id is required.",
     {
@@ -1663,7 +1666,28 @@ def handle_generate_hook_payload(request_id, arguments):
         body["email"] = f"{base_url}/api/v1/emails/{arguments['email_id']}"
     if "upload_id" in arguments:
         body["upload"] = f"{base_url}/api/v1/uploads/{arguments['upload_id']}"
-    _rossum_post(request_id, f"/api/v1/hooks/{arguments['hook_id']}/generate_payload", body)
+    result = _http_request(
+        request_id,
+        f"{base_url}/api/v1/hooks/{arguments['hook_id']}/generate_payload",
+        method="POST",
+        body=body,
+    )
+    if result is None:
+        return
+    payload_bytes = json.dumps(result, indent=2).encode("utf-8")
+    prefix = f"rossum-hook-payload-{arguments['hook_id']}-{arguments['event']}-{arguments['action']}-"
+    with tempfile.NamedTemporaryFile(
+        mode="wb", suffix=".json", prefix=prefix, dir="/tmp", delete=False
+    ) as fh:
+        fh.write(payload_bytes)
+        path = fh.name
+    top_level_keys = list(result.keys()) if isinstance(result, dict) else []
+    summary = {
+        "path": path,
+        "size_bytes": len(payload_bytes),
+        "top_level_keys": top_level_keys,
+    }
+    tool_result(request_id, json.dumps(summary, indent=2))
 
 
 @_tool(
