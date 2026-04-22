@@ -27,7 +27,7 @@ The skill walks through 8 phases. Later phases depend on earlier ones — do not
 
 Fetch the ticket using `mcp__atlassian__getJiraIssue` with `cloudId: rossumai-sandbox.atlassian.net`. Use the minimal field list the `jira` skill documents: `summary`, `description`, `status`, `assignee`, `reporter`, `priority`, `issuetype`, `resolution`, `created`, `updated`, `labels`, `components`, `parent`.
 
-If the ticket prefix is something other than common SA prefixes like `DC`, `US`, or `PLAT`, print a one-line warning and ask the user to confirm before continuing. On 404, stop with a clear "Ticket `<KEY>` not found" error. On auth error, stop and surface the credential issue so the user can re-authenticate.
+This skill is built for User Support (`US-*`) tickets. If the prefix is anything else, print a one-line warning — "This is a User Support ticket solver; using it on other ticket types isn't recommended, but you can try." — and ask the user to confirm before continuing. On 404, stop with a clear "Ticket `<KEY>` not found" error. On auth error, stop and surface the credential issue so the user can re-authenticate.
 
 Internally capture (do not print to the user): reporter, symptom in one sentence, any queue / hook / field / document IDs mentioned anywhere in the ticket, any explicit reproduction IDs or dates, and any obvious data gaps. These feed Phase 3.
 
