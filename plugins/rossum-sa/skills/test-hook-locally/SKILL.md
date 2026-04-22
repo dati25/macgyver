@@ -75,16 +75,16 @@ The runner enforces a **fail-closed** network policy. There is no opt-out.
 
 2. **Socket backstop** (`socket.socket.connect` + `socket.create_connection`) — any connection attempt to a non-loopback address fails with `PermissionError` unless the current call was sanctioned by a library patcher above. This means if a hook uses an HTTP client we haven't patched, the runner fails loudly rather than silently allowing writes through.
 
-When a non-GET call is attempted, the patcher **raises `BlockedByReadOnly`** immediately. The exception propagates up through the hook; the runner catches it at the top level, prints the traceback and block summary to stderr, and exits with code 1. No fake responses — the hook is never tricked into thinking its write succeeded.
+When a non-GET call is attempted, the patcher **raises `BlockedByReadOnly`** immediately. The exception propagates up through the hook; the runner catches it at the top level, prints the traceback to stderr, and exits with code 1. No fake responses — the hook is never tricked into thinking its write succeeded.
 
-Blocked calls are logged to stderr in real time, and a summary prints at the end:
+Example stderr:
 
 ```
 [run_hook] BLOCKED requests POST https://elis.rossum.ai/api/v1/annotations/42
-[run_hook] BLOCKED httpx PATCH https://elis.rossum.ai/api/v1/queues/7
-[run_hook] --- blocked call summary ---
-[run_hook]   httpx:PATCH: 1
-[run_hook]   requests:POST: 1
+[run_hook] hook raised an exception:
+Traceback (most recent call last):
+  ...
+BlockedByReadOnly: requests POST https://elis.rossum.ai/api/v1/annotations/42 blocked by run_hook
 ```
 
 ### What's covered vs. not

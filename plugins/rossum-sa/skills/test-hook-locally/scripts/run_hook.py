@@ -30,7 +30,6 @@ _BLOCKED_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 _LOOPBACK_PREFIXES = ("127.", "::1", "0:0:0:0:0:0:0:1")
 _LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
 _sanctioned = contextvars.ContextVar("sanctioned", default=False)
-_block_counts = {}
 
 
 def _is_loopback(host):
@@ -42,8 +41,6 @@ def _is_loopback(host):
 
 
 def _log_blocked(source, method, url):
-    key = f"{source}:{method.upper()}"
-    _block_counts[key] = _block_counts.get(key, 0) + 1
     print(f"[run_hook] BLOCKED {source} {method.upper()} {url}", file=sys.stderr)
 
 
@@ -205,14 +202,6 @@ def install_network_guards():
             )
 
 
-def _print_block_summary():
-    if not _block_counts:
-        return
-    print("[run_hook] --- blocked call summary ---", file=sys.stderr)
-    for key, count in sorted(_block_counts.items()):
-        print(f"[run_hook]   {key}: {count}", file=sys.stderr)
-
-
 # --- Runner core ---
 
 
@@ -310,10 +299,7 @@ def main():
     except Exception:
         print("[run_hook] hook raised an exception:", file=sys.stderr)
         traceback.print_exc()
-        _print_block_summary()
         sys.exit(1)
-
-    _print_block_summary()
 
     try:
         print(json.dumps(result, indent=2, default=str))
