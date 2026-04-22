@@ -33,7 +33,7 @@ Internally capture (do not print to the user): reporter, symptom in one sentence
 
 ## Phase 2 — Download the org
 
-Resolve the five inputs the `download_org.py` script needs. Gather what's already in context, then ask the user only for what's missing, and confirm before running.
+Resolve the five inputs the `download_org.py` script needs. Gather what's already in context, then ask the user only for what's missing, and run the script immediately once all inputs are in hand — **do not gate on a final "proceed?" confirmation**. The download only writes a throwaway branch to the ticketsolver remote; it is not a live-Rossum write. Phase 2 must complete (through `prd2 pull`, branch push, and repo summary) in one pass before handing off to Phase 3.
 
 ### Input resolution
 
@@ -230,4 +230,4 @@ Explicit user approval required at each of these points; all other operations pr
 | Per-file approve | 8a | Each `git add <path>` |
 | Git push | 8c | `git push` to the ticketsolver remote |
 
-Local reads, local file edits, `test-hook-locally` runs, fetching the ticket, and the Phase 2 branch push (side effect of the download script) do not prompt.
+Local reads, local file edits, `test-hook-locally` runs, fetching the ticket, and the entire Phase 2 download (clone, `prd2 pull`, branch push to the ticketsolver remote) do not prompt — Phase 2 must run end-to-end without a mid-phase gate.
