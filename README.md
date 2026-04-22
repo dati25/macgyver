@@ -122,6 +122,7 @@ The MCP server starts automatically when `rossum-sa` is enabled. Write and destr
 | `rossum_list_schemas` | List all schemas |
 | `rossum_list_hooks` | List hooks/extensions (filter by queue, active) |
 | `rossum_get_hook` | Get full hook details including code and config |
+| `rossum_generate_hook_payload` | Generate a sample payload the hook would receive at runtime (for testing) |
 | `rossum_create_hook` | ✏️ Create a new hook (serverless function or webhook) |
 | `rossum_delete_hook` | ⚠️ Delete a hook |
 | `rossum_patch_hook` | ✏️ Update an existing hook (code, events, active, queues) |

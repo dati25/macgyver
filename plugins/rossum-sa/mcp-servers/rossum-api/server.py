@@ -1599,6 +1599,74 @@ def handle_get_hook(request_id, arguments):
 
 
 @_tool(
+    "rossum_generate_hook_payload",
+    "Generates a sample hook payload for a specific event and action, as the hook would receive it at runtime. "
+    "Useful for testing or previewing hook inputs. Values in 'secrets' are redacted. "
+    "For 'annotation_status' and 'annotation_content' events, annotation_id, previous_status, and status are required. "
+    "For 'email' events, email_id is required. For 'upload' events, upload_id is required.",
+    {
+        "type": "object",
+        "required": ["hook_id", "action", "event"],
+        "properties": {
+            "hook_id": {
+                "type": "integer",
+                "description": "The hook ID to generate a payload for.",
+            },
+            "action": {
+                "type": "string",
+                "description": "Hook action (e.g. 'initialize', 'started', 'updated', 'confirm', 'export', 'user_update', 'scheduled', 'received', 'manual').",
+            },
+            "event": {
+                "type": "string",
+                "description": "Hook event (e.g. 'annotation_content', 'annotation_status', 'invocation', 'email', 'upload').",
+            },
+            "annotation_id": {
+                "type": "integer",
+                "description": "Annotation ID for annotation_status / annotation_content events.",
+            },
+            "previous_status": {
+                "type": "string",
+                "description": "Previous document status. Required for annotation_status and annotation_content events.",
+            },
+            "status": {
+                "type": "string",
+                "description": "Current document status. Required for annotation_status and annotation_content events.",
+            },
+            "email_id": {
+                "type": "integer",
+                "description": "Email ID. Required for email events.",
+            },
+            "upload_id": {
+                "type": "integer",
+                "description": "Upload ID. Required for upload events.",
+            },
+        },
+        "additionalProperties": False,
+    },
+    annotations=_READ_ONLY,
+)
+def handle_generate_hook_payload(request_id, arguments):
+    base_url, _ = _ensure_connection(request_id)
+    if not base_url:
+        return
+    body = {
+        "action": arguments["action"],
+        "event": arguments["event"],
+    }
+    if "annotation_id" in arguments:
+        body["annotation"] = f"{base_url}/api/v1/annotations/{arguments['annotation_id']}"
+    if "previous_status" in arguments:
+        body["previous_status"] = arguments["previous_status"]
+    if "status" in arguments:
+        body["status"] = arguments["status"]
+    if "email_id" in arguments:
+        body["email"] = f"{base_url}/api/v1/emails/{arguments['email_id']}"
+    if "upload_id" in arguments:
+        body["upload"] = f"{base_url}/api/v1/uploads/{arguments['upload_id']}"
+    _rossum_post(request_id, f"/api/v1/hooks/{arguments['hook_id']}/generate_payload", body)
+
+
+@_tool(
     "rossum_create_hook",
     "Creates a new hook (extension) in the Rossum organization. Hooks can be serverless functions "
     "(type='function') executed in Python 3.12 or webhooks (type='webhook') that POST to an external URL. "
@@ -2211,7 +2279,7 @@ def main():
                 respond(request_id, {
                     "protocolVersion": "2024-11-05",
                     "capabilities": {"tools": {}},
-                    "serverInfo": {"name": "rossum-api", "version": "0.11.0"},
+                    "serverInfo": {"name": "rossum-api", "version": "0.12.0"},
                     "instructions": (
                         "SAFETY RULE — confirmation before writes: "
                         "Do NOT call any write, update, patch, create, or delete tool "
