@@ -148,17 +148,6 @@ Use a subsystem-specific protocol. Always read-only at this phase.
 
 ## Phase 7 — Decision fork
 
-### Not reproducible
-Post a comment including:
-- Timeline (failure → ticket filed → current state) with UTC timestamps.
-- Current annotation / resource status.
-- Hook-wide recurrence stats over the log window.
-- Explicit statement: *"the signature has not recurred in N errors over M
-  days"*.
-- If the error path lives in a Rossum-managed service, say so and recommend
-  Engineering escalation with a fresh `request_id` if it recurs.
-- Sign off with: no further support-side action pursued.
-
 **Stop here.** Do not speculate on root cause.
 
 ### Reproducible — proceed to Phase 7a
@@ -173,22 +162,22 @@ Try to root-cause with **Issue + Support PoV** first — fastest path if the
 PoV is right. If any piece of the PoV does not hold up against live data, drop the entire PoV and
 re-investigate from the Issue alone. Do not partially believe the PoV.
 
-## Phase 8 — Propose fix (simulate only, never push, stop after its completion to give users choice how to proceed)
+Present findings to user.
 
-Take the fix candidate and provide the design of the fix to user.
+## Phase 8 — Implement fix (never push, stop after its completion to give users choice how to proceed)
 
-1. Write the proposed change in multiple detailed steps
-2. Ask user if you should **Simulate it** via live MCP or rossum:sa skills
-3. Report verified behavior in a result table — do not claim a fix works
-   without the simulation output.
-4. Ask user if you should apply fixes to prd2 repository files. If yes proceed to p.5 otherwise ask if you should go to Phase 9 directly.
-5. Describe how to use `prd2 push`* (for hooks) or which data_storage command (for index or
-   dataset changes) must be performed by user. **Never run the apply step** without explicit user
-   approval.
+Record current commit's Full SHA to perform DIFF operations later as "diff 1"
 
-If the investigation surfaced latent risks in sibling configs (e.g. other
-country-specific collections with the same vulnerable query), record them
-as *Open items* in the comment — do not silently expand scope.
+Ask user if you should implement fix. If yes: Apply the edits from the proposal using Edit / Write . Safety rules from the plugin's CLAUDE.md stand:
+- Never edit the code field in hook JSON — edit the .py file.
+- Never edit the formula property in schema.json — edit the formulas/*.py file.
+
+Describe how to use `prd2 push`* (for hooks) or which data_storage command (for index or dataset changes) must be performed by user. **Never run the apply step** without explicit user approval.
+
+Ask user to commit changes after 'prd2 push' is done. Ask user if he/she has already applied it. 
+IF NO: Create docs/FIX-<TICKET>.test-request.json with proposed changes. 
+IF YES: Get new commit's Full SHA and record it as "diff 2". Provide it for later stages if needed to analyze a change. After that create docs/FIX-<TICKET>.test-request.json with proposed changes. 
+
 
 ## Phase 9 — Post findings comment
 
