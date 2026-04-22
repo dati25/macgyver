@@ -25,7 +25,7 @@ The skill walks through 8 phases. Later phases depend on earlier ones — do not
 
 ## Phase 1 — Fetch ticket
 
-Fetch the ticket using `mcp__atlassian__getJiraIssue` on `rossumai-sandbox.atlassian.net` (Atlassian cloud may become `rossumai` in the future — accept either if the first fails). Use the same minimal field list the `jira` skill documents: `summary`, `description`, `status`, `assignee`, `reporter`, `priority`, `issuetype`, `resolution`, `created`, `updated`, `labels`, `components`, `parent`.
+Fetch the ticket using `mcp__atlassian__getJiraIssue` with `cloudId: rossumai-sandbox.atlassian.net`. Use the minimal field list the `jira` skill documents: `summary`, `description`, `status`, `assignee`, `reporter`, `priority`, `issuetype`, `resolution`, `created`, `updated`, `labels`, `components`, `parent`.
 
 If the ticket prefix is something other than common SA prefixes like `DC`, `US`, or `PLAT`, print a one-line warning and ask the user to confirm before continuing. On 404, stop with a clear "Ticket `<KEY>` not found" error. On auth error, stop and surface the credential issue so the user can re-authenticate.
 
@@ -35,32 +35,48 @@ Internally capture (do not print to the user): reporter, symptom in one sentence
 
 Resolve the five inputs the `download_org.py` script needs. Gather what's already in context, then ask the user only for what's missing, and confirm before running.
 
-| Input | Flag | Where it comes from |
-|-------|------|---------------------|
-| Organization URL | `--org-url` | Jira ticket fields or user |
-| Organization ID | `--org-id` | Jira ticket fields, `rossum_whoami`, or user |
-| Rossum API token | `--token` | `rossum_whoami` if already authenticated, else user (or `rossum_set_token`) |
-| Ticketsolver git URL | `--git-url` | Prior conversation / project convention, or user |
-| Ticket number | `--ticket` | Phase 1 output |
+### Input resolution
 
-Run the script:
+| Input | Flag | How to resolve |
+|-------|------|----------------|
+| Organization URL | `--org-url` | Base org URL, e.g. `https://mks.rossum.app`. The script accepts both origin form and `/api/v1` form. |
+| Organization ID | `--org-id` | **Do not** parse the `organization` URL from `rossum_whoami` — it points at an internal group object, not the tenant org (fetching it 404s). Instead call `rossum_list_workspaces` and read the `organization` field on any result; that's the real tenant ID. Ask the user as a fallback. |
+| Rossum API token | `--token` | See "Token and URL resolution" below. |
+| Ticketsolver git URL | `--git-url` | **Default**: `git@gitlab.rossum.cloud:solution-engineering/customers/ticket-solver.git` (SSH). Only override if the user explicitly provides a different URL. If they pass an HTTPS URL, warn them SSH is preferred. |
+| Ticket number | `--ticket` | Phase 1 output. |
+
+### Token and URL resolution
+
+1. If `rossum_whoami` already returns a valid identity, reuse the MCP session's cached token and base URL — no further setup needed.
+2. Otherwise, if the user pasted a curl command (common), extract the `Bearer <token>` value from the `-H "Authorization: ..."` header and the URL from the curl's URL argument.
+3. Otherwise, call `rossum_set_token(token="...", baseUrl="...")` — note `baseUrl` is camelCase, and the URL should be the `/api/v1` form.
+4. Call `rossum_list_workspaces` and read the `organization` field on any workspace — that integer is the tenant `org_id`. (`rossum_whoami`'s `organization` URL points to a different, non-tenant object and 404s on fetch.)
+
+### Running the script
 
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/skills/solve-the-ticket/scripts/download_org.py \
   --org-url <ORG_URL> \
   --org-id <ORG_ID> \
   --token <TOKEN> \
-  --git-url <GIT_URL> \
   --ticket <TICKET>
 ```
 
-The script creates `<tmp>/ticketsolver-<TICKET>/repo/`, clones the ticketsolver repo, checks out a branch named `<TICKET>`, writes `prd_config.yaml` and `credentials.yaml` under `<TICKET>/`, runs `prd2 pull organization -a`, commits, and pushes the branch. `credentials.yaml` is gitignored — do not add it to any commit.
+`--git-url` defaults to the ticketsolver SSH URL (`git@gitlab.rossum.cloud:solution-engineering/customers/ticket-solver.git`). Pass `--git-url` only if the user explicitly provides a different URL.
 
-On success, report: branch name, local repo path, and a one- or two-line summary of what was pulled (workspaces, queues, hooks, schemas). The script raises `RuntimeError` with full command output on failure — surface it and suggest the most likely cause (wrong token, wrong org ID, branch already exists, no git access).
+Alternatives for the token: set `ROSSUM_TOKEN` in the environment, or pipe the token on stdin. Command-line tokens show up in `ps` output — prefer env var when convenient.
+
+Pass `--force` to wipe an existing `<tmp>/ticketsolver-<TICKET>/` and start fresh. Re-running without `--force` is safe: the script detects an existing clean work dir, reuses it, and re-pulls idempotently (no duplicate commit/push). If the repo is dirty, it aborts with a clear "resume detected, but repo has uncommitted changes" message.
+
+The script creates `<tmp>/ticketsolver-<TICKET>/repo/`, clones the ticketsolver repo, checks out a branch named `<TICKET>`, writes `prd_config.yaml` and `credentials.yaml` under `<TICKET>/organization/`, runs `prd2 pull organization -a` (pulls into `<TICKET>/organization/default/…`), stages `<TICKET>/` only, commits, and pushes the branch. `credentials.yaml` is gitignored — do not add it to any commit.
+
+On success, the script prints the branch name, local repo path, ticket dir, and a one-line summary of what was pulled. After it returns, `cd` into the printed repo path for all subsequent phases so `git status`, `prd2 push`, and edits resolve correctly.
+
+The script raises `RuntimeError` with full command output on failure — surface it and suggest the most likely cause (wrong token, wrong org ID, uncommitted changes from a prior run, no git access, prd2 not installed).
 
 ## Phase 3 — Understand the issue
 
-Use `skills/__shared/discovery-checklist.md` as the read plan. Focus on the components the ticket mentions — don't map the whole org unless the ticket's scope actually requires it. If the ticket includes a reproduction annotation or document ID, cross-check via the `rossum-api` MCP (`rossum_get_annotation`, `rossum_get_annotation_content`, `rossum_get_document`, `rossum_list_hook_logs`, etc.) to confirm the symptom against live data.
+Use `${CLAUDE_PLUGIN_ROOT}/skills/__shared/discovery-checklist.md` as the read plan. Focus on the components the ticket mentions — don't map the whole org unless the ticket's scope actually requires it. If the ticket includes a reproduction annotation or document ID, cross-check via the `rossum-api` MCP (`rossum_get_annotation`, `rossum_get_annotation_content`, `rossum_get_document`, `rossum_list_hook_logs`, etc.) to confirm the symptom against live data.
 
 Then present the hypothesis to the user in this shape:
 
@@ -87,7 +103,7 @@ Edit the target file(s) in the cloned repo. Follow the MCP server's editing rule
 - **Hook logic** → edit the `.py` source file, never the `code` field in hook JSON. `prd2 push` syncs `.py` back into the JSON.
 - **Formula logic** → edit `formulas/*.py`, never the `formula` property in `schema.json`. Same reason.
 
-If a hook `.py` was edited, invoke the `test-hook-locally` skill to run a generated payload against the updated code. Iterate edit → test → edit until the hook passes. Show the runner's stdout/stderr after each run. `test-hook-locally` only handles `function`-type hooks — if the edited hook is a webhook, skip local testing and rely on the post-push verification in Phase 6.
+If a hook `.py` was edited, invoke the `test-hook-locally` skill to run a generated payload against the updated code. Pass an **absolute** path to `--module` — e.g. `/tmp/ticketsolver-<TICKET>/repo/<TICKET>/organization/default/hooks/<HookName>_<ID>.py`. Relative paths resolve against `${CLAUDE_PLUGIN_ROOT}`, not the cloned repo. Iterate edit → test → edit until the hook passes. Show the runner's stdout/stderr after each run. `test-hook-locally` only handles `function`-type hooks — if the edited hook is a webhook, skip local testing and rely on the post-push verification in Phase 6.
 
 If only non-hook files were edited (schema, rule, queue, inbox JSON, or formula `.py`), skip `test-hook-locally` — no equivalent local harness exists. Formula diffs can be eyeballed; schema / rule / queue changes are verified once pushed.
 
@@ -106,7 +122,18 @@ Files to sync:
 Proceed? [yes / no]
 ```
 
-Wait for explicit confirmation. Then run `prd2 push` from the ticket directory (`<repo>/<TICKET>/`). Report the command output. On failure, do not auto-retry — surface the error and let the user decide whether to re-edit, re-run, or abort.
+Wait for explicit confirmation.
+
+Before pushing, `git add` each file the user just approved for sync (so `prd2 push -io` has an explicit allow-list). Then run from the ticket directory:
+
+```bash
+prd2 push organization/default -io
+```
+
+- `organization/default` is the destination — `prd2 push -io` alone fails with "No destinations specified to pull." (verified live).
+- `-io` (`--indexed-only`) restricts the push to files in the git index. Combined with explicit `git add`, this produces an `Total objects: 1` push for a one-file fix (verified live on datii).
+
+Report the command output. On failure, do not auto-retry — surface the error and let the user decide whether to re-edit, re-run, or abort.
 
 ## Phase 7 — Post Jira comment
 
@@ -125,7 +152,7 @@ Draft an internal SA-team comment on the ticket. Use this shape:
 
 Show the draft to the user. Options:
 
-- **post** — call `mcp__atlassian__addCommentToJiraIssue`, then confirm `✓ Comment posted to <TICKET>`.
+- **post** — call `mcp__atlassian__addCommentToJiraIssue` with the same `cloudId` used in Phase 1 (`rossumai-sandbox.atlassian.net`), then confirm `✓ Comment posted to <TICKET>`.
 - **edit** — ask what to change, apply the edit, re-show the draft, re-prompt.
 - **skip** — move on without commenting.
 
@@ -141,7 +168,7 @@ Run `git status --porcelain` in the cloned repo. If nothing is dirty, report "no
 
 Otherwise, for each modified / added / deleted file, in alphabetical path order:
 
-1. Show path, diff, and a 1–3 sentence rationale (what changed, why, anything noteworthy).
+1. Show path, diff (fall back to a structural summary for binary files or diffs over ~500 lines), and a 1–3 sentence rationale (what changed, why, anything noteworthy).
 2. Prompt **Approve / Edit / Skip / Stop**:
    - **Approve** → `git add <path>`.
    - **Edit** → ask "what should change?", apply the edit, re-narrate (new diff + new rationale), re-prompt for that file.
@@ -188,7 +215,7 @@ git commit -m "Fixing <TICKET>"
 git push
 ```
 
-Commit message is exactly `Fixing <TICKET>` (e.g. `Fixing DC-1234`). This push is a gate — confirm with the user before running, then report success or the full error output.
+Commit message is exactly `Fixing <TICKET>` (e.g. `Fixing DC-1234`). Upstream tracking was set in Phase 2 (`git push -u origin <TICKET>`), so a plain `git push` is enough here. This push is a gate — confirm with the user before running, then report success or the full error output.
 
 No further Jira writes in Phase 8.
 
