@@ -44,6 +44,7 @@ component (🟢 healthy, 🟡 warning, 🔴 broken).
 | `/rossum-sa:implement` | Plan and execute an integration project end-to-end |
 | `/rossum-sa:refine-deployment [deploy-file] [impl-path]` | Enhance prd2 deploy files with target IDs and attribute overrides |
 | `/rossum-sa:upgrade [path]` | Upgrade deprecated extensions to modern formula fields |
+| `/rossum-sa:test-hook-locally` | Run a generated hook payload against local hook code for rapid iteration |
 
 ### `nerossum`
 
